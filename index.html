@@ -1174,7 +1174,11 @@
           "name": "經濟學(一)",
           "credits": 3,
           "category": "required",
-          "slots": [],
+          "slots": [
+            "Mon-2",
+            "Mon-3",
+            "Mon-4"
+          ],
           "semesters": [
             1
           ],
@@ -1185,7 +1189,11 @@
           "name": "經濟學(二)",
           "credits": 3,
           "category": "required",
-          "slots": [],
+          "slots": [
+            "Mon-2",
+            "Mon-3",
+            "Mon-4"
+          ],
           "semesters": [
             2
           ],
@@ -1196,7 +1204,11 @@
           "name": "統計學(一)",
           "credits": 3,
           "category": "required",
-          "slots": [],
+          "slots": [
+            "Wed-2",
+            "Wed-3",
+            "Wed-4"
+          ],
           "semesters": [
             1
           ],
@@ -1207,7 +1219,11 @@
           "name": "統計學(二)",
           "credits": 3,
           "category": "required",
-          "slots": [],
+          "slots": [
+            "Wed-2",
+            "Wed-3",
+            "Wed-4"
+          ],
           "semesters": [
             2
           ],
@@ -2414,23 +2430,72 @@
       });
     }
 
+    // 課程來源：本系課程庫 或 全校課程(學院 -> 單位)
+    var sourceSel = el("select", { id: "s4-source" }, [
+      el("option", { value: "dept", selected: true }, "\u672c\u7cfb\u8ab2\u7a0b\u5eab"),
+      el("option", { value: "catalog" }, "\u5168\u6821\u8ab2\u7a0b\uff08\u5b78\u9662\u2192\u55ae\u4f4d\uff09")
+    ]);
+    var collegeSel4 = el("select", { id: "s4-college" });
+    var unitSel4 = el("select", { id: "s4-unit" });
+    function fillColleges4() {
+      clear(collegeSel4);
+      collegeSel4.appendChild(el("option", { value: "" }, "\u8acb\u9078\u64c7\u5b78\u9662"));
+      if (CATALOG) CATALOG.colleges.forEach(function (c, idx) { collegeSel4.appendChild(el("option", { value: String(idx) }, c.name)); });
+    }
+    function fillUnits4() {
+      clear(unitSel4);
+      unitSel4.appendChild(el("option", { value: "" }, "\u8acb\u9078\u64c7\u55ae\u4f4d"));
+      var col = CATALOG && collegeSel4.value !== "" ? CATALOG.colleges[parseInt(collegeSel4.value, 10)] : null;
+      if (col) col.units.forEach(function (u, i) { unitSel4.appendChild(el("option", { value: String(i) }, u.name + "\uff08" + u.courses.length + "\uff09")); });
+    }
+    fillColleges4(); fillUnits4();
+
     var searchInp = el("input", { type: "search", id: "s4-search", placeholder: "\u8ab2\u78bc\u6216\u8ab2\u540d" });
     var catSel = el("select", { id: "s4-cat" }, [el("option", { value: "" }, "\u5168\u90e8\u985e\u5225")].concat(
       ["required", "elective", "general", "free"].map(function (c) { return el("option", { value: c }, CATEGORY_LABEL[c]); })
     ));
     var gapChk = el("input", { type: "checkbox", id: "s4-gap", checked: true });
     gapChk.addEventListener("change", function () { priorityGapOnly = gapChk.checked; renderAvail(); });
+    sourceSel.addEventListener("change", renderAvail);
+    collegeSel4.addEventListener("change", function () { fillUnits4(); renderAvail(); });
+    unitSel4.addEventListener("change", renderAvail);
     searchInp.addEventListener("input", renderAvail);
     catSel.addEventListener("change", renderAvail);
+
+    function availSource() {
+      // 回傳目前要篩選的課程清單（統一含 slots/category）
+      var st = Store.get();
+      if (sourceSel.value === "catalog") {
+        if (!CATALOG || collegeSel4.value === "" || unitSel4.value === "") return null; // null = 尚未選定單位
+        var col = CATALOG.colleges[parseInt(collegeSel4.value, 10)];
+        var unit = col ? col.units[parseInt(unitSel4.value, 10)] : null;
+        if (!unit) return [];
+        return unit.courses.map(function (c) { return { code: c.code, name: c.name, credits: c.credits, category: c.category, slots: (c.slots || []).slice() }; });
+      }
+      // 本系課程庫：沿用原本「本學期開課」語意
+      return school.courses.filter(function (c) { return c.semesters.indexOf(semester) !== -1; })
+        .map(function (c) { return { code: c.code, name: c.name, credits: c.credits, category: c.category, slots: (c.slots || []).slice() }; });
+    }
 
     function renderAvail() {
       clear(availCard);
       availCard.appendChild(el("h3", null, "\u53ef\u9078\u8ab2\u7a0b"));
+      var controls = [
+        el("div", { class: "col" }, [el("label", { for: "s4-source" }, "\u8ab2\u7a0b\u4f86\u6e90"), sourceSel])
+      ];
+      if (sourceSel.value === "catalog") {
+        controls.push(el("div", { class: "col" }, [el("label", { for: "s4-college" }, "\u5b78\u9662"), collegeSel4]));
+        controls.push(el("div", { class: "col" }, [el("label", { for: "s4-unit" }, "\u55ae\u4f4d"), unitSel4]));
+      }
+      availCard.appendChild(el("div", { class: "row" }, controls));
       availCard.appendChild(el("div", { class: "row" }, [
         el("div", { class: "col" }, [el("label", { for: "s4-search" }, "\u641c\u5c0b"), searchInp]),
         el("div", { class: "col" }, [el("label", { for: "s4-cat" }, "\u985e\u5225"), catSel]),
         el("div", { class: "col", style: "display:flex;align-items:flex-end;gap:6px" }, [gapChk, el("label", { for: "s4-gap", style: "font-weight:400" }, "\u512a\u5148\u986f\u793a\u5c1a\u6709\u7f3a\u53e3\u985e\u5225")])
       ]));
+      if (sourceSel.value === "catalog") {
+        availCard.appendChild(el("p", { class: "muted" }, "\u5168\u6821\u8ab2\u7a0b\u70ba\u958b\u8ab2\u5feb\u7167\uff0c\u90e8\u5206\u8ab2\u7a0b\u7121\u6642\u6bb5\u8cc7\u6599\uff08\u4e0d\u5217\u5165\u885d\u5802\u6aa2\u67e5\uff09\u3002"));
+      }
       var st = Store.get();
       var selectedCodes = {}; st.plan.items.forEach(function (it) { selectedCodes[it.code] = true; });
       var done = doneCodesSet();
@@ -2438,8 +2503,9 @@
       var q = searchInp.value.trim().toLowerCase();
       var cat = catSel.value;
       var planConflictItems = st.plan.items;
-      var list = school.courses.filter(function (c) {
-        if (c.semesters.indexOf(semester) === -1) return false;
+      var src = availSource();
+      if (src === null) { availCard.appendChild(el("p", { class: "muted" }, "\u8acb\u5148\u9078\u64c7\u5b78\u9662\u8207\u55ae\u4f4d\u3002")); return; }
+      var list = src.filter(function (c) {
         if (selectedCodes[c.code]) return false;
         if (done[c.code]) return false;
         if (cat && c.category !== cat) return false;
@@ -2454,15 +2520,15 @@
         });
       }
       if (!list.length) { availCard.appendChild(el("p", { class: "muted" }, "\u627e\u4e0d\u5230\u7b26\u5408\u7684\u8ab2\u7a0b\uff0c\u53ef\u6539\u7528\u300c\u81ea\u8a02\u8ab2\u7a0b\u300d\u3002")); return; }
-      list.slice(0, 50).forEach(function (c) {
-        var willConflict = findConflicts(planConflictItems.concat([{ code: c.code, name: c.name, slots: c.slots }])).some(function (cf) { return cf.a.code === c.code || cf.b.code === c.code; });
+      list.slice(0, 60).forEach(function (c) {
+        var willConflict = c.slots.length && findConflicts(planConflictItems.concat([{ code: c.code, name: c.name, slots: c.slots }])).some(function (cf) { return cf.a.code === c.code || cf.b.code === c.code; });
         var addBtn = el("button", { class: "small primary", type: "button", onclick: function () {
-          Store.set(function (s) { s.plan.items.push({ code: c.code, name: c.name, credits: c.credits, category: c.category, slots: c.slots.slice(), source: "manual" }); });
+          Store.set(function (s2) { s2.plan.items.push({ code: c.code, name: c.name, credits: c.credits, category: c.category, slots: c.slots.slice(), source: "manual" }); });
           refresh();
         } }, "\u52a0\u5165");
         var label = el("span", { class: "grow" }, [el("strong", null, c.code + " "), c.name,
           el("span", { class: "tag", style: "margin-left:6px" }, CATEGORY_LABEL[c.category]),
-          el("span", { class: "tag", style: "margin-left:4px" }, c.slots.join("\u3001")),
+          el("span", { class: "tag", style: "margin-left:4px" }, c.slots.length ? c.slots.join("\u3001") : "\u7121\u6642\u6bb5"),
           " " + c.credits + " \u5b78\u5206", willConflict ? el("span", { class: "tag", style: "color:var(--warn);margin-left:4px" }, "\u26a0 \u53ef\u80fd\u885d\u5802") : null]);
         availCard.appendChild(el("div", { class: "list-item" }, [label, addBtn]));
       });
@@ -2706,6 +2772,22 @@
   // ============================================================
   // 8. Init
   // ============================================================
+  // 以目前 seed 的最新資料補正舊存檔中 slots 為空的課程（避免改了 seed 後舊 plan/history 時段遺失）
+  function reconcileSlots(state) {
+    if (!state || !state.profile) return;
+    var school = getSchool(state.profile.schoolId);
+    if (!school) return;
+    function fix(items) {
+      (items || []).forEach(function (it) {
+        if (it.slots && it.slots.length) return;
+        var c = getCourse(school, it.code);
+        if (c && c.slots && c.slots.length) it.slots = c.slots.slice();
+      });
+    }
+    if (state.plan) fix(state.plan.items);
+    if (state.history) fix(state.history.items);
+  }
+
   function init() {
     try {
       SEED = loadSeed();
@@ -2726,6 +2808,8 @@
     } else if (loaded) {
       Store.replace(loaded);
     }
+
+    Store.set(function (st) { reconcileSlots(st); });
 
     if (!storageOK) {
       setTimeout(function () { toast("\u7121\u6cd5\u4f7f\u7528\u700f\u89bd\u5668\u5132\u5b58\uff0c\u8cc7\u6599\u50c5\u4fdd\u7559\u65bc\u672c\u6b21\u700f\u89bd\uff0c\u8acb\u8a18\u5f97\u532f\u51fa\u3002"); }, 200);
