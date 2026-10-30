@@ -1265,7 +1265,7 @@
           "code": "MA1006",
           "name": "微積分(二)",
           "credits": 3,
-          "category": "elective",
+          "category": "free",
           "slots": [],
           "semesters": [
             1,
@@ -2869,6 +2869,8 @@
         if ((pre === "GS" || pre === "CC") && it.category !== "general") it.category = "general";
         // 語言課(LN)與AI聯盟(TC)一律歸為自由選修
         if ((pre === "LN" || pre === "TC") && it.category !== "free") it.category = "free";
+        // 微積分(二) MA1006 歸為自由選修
+        if (it.code === "MA1006" && it.category !== "free") it.category = "free";
       });
     }
     if (state.plan) fix(state.plan.items);
